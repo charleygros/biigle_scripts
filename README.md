@@ -17,12 +17,12 @@ pip install -e .
 ```
 
 ## How to run a script
-Type the script of interest in your terminal followed by `-h` to get its usage. For instance:
-```bash
+Type the script's name of interest in your terminal followed by `-h` to get its usage. For instance:
+```
 convert_laser_circle_to_point -h
 ```
 ... gives:
-```bash
+```
 usage: convert_laser_circle_to_point -e EMAIL -t TOKEN -s SURVEY_NAME [-h]
 
 MANDATORY ARGUMENTS:
