@@ -1,6 +1,19 @@
 import copy
+import argparse
 from requests.exceptions import HTTPError
 from biigle.biigle import Api
+
+
+def get_parser():
+    parser = argparse.ArgumentParser(add_help=False)
+
+    # MANDATORY ARGUMENTS
+    mandatory_args = parser.add_argument_group('MANDATORY ARGUMENTS')
+
+    # OPTIONAL ARGUMENTS
+    optional_args = parser.add_argument_group('OPTIONAL ARGUMENTS')
+
+    return parser
 
 
 def get_project_id(projects, project_name):
