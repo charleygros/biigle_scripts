@@ -3,6 +3,8 @@ import argparse
 from requests.exceptions import HTTPError
 from biigle.biigle import Api
 
+BATCH_SIZE = 100
+
 
 def get_parser():
     parser = argparse.ArgumentParser(add_help=False)
@@ -86,14 +88,11 @@ def convert_laser_circle_to_point(email, token, survey_name):
     except HTTPError as e:
         can_batch_create = False
     print("\n... Batch processing: {}.".format(can_batch_create))
-
-    batch_size = 1
     batch = []
 
     print("\n... Looping across images.")
     for image_id in image_ids:
-
-        # Check if automatic laser point detection
+        # Check if laser point already exist
         try:
             laser_info = api.get('images/{}/laserpoints'.format(image_id)).json()
 
@@ -102,7 +101,9 @@ def convert_laser_circle_to_point(email, token, survey_name):
                 continue
 
         except:
+            # Get all annotations for the current image
             annotation_info = api.get('images/{}/annotations'.format(image_id)).json()
+            # Get laser annotations for the given image
             laser_annotations = get_label_annotations(annotation_info, label_name)
 
             # Check if there is some laser annotations
@@ -125,7 +126,7 @@ def convert_laser_circle_to_point(email, token, survey_name):
                         if can_batch_create:
                             post_data['image_id'] = image_id
                             batch.append(copy.copy(post_data))
-                            if len(batch) == batch_size:
+                            if len(batch) == BATCH_SIZE:
                                 api.post('annotations', json=batch)
                                 batch = []
                         else:
@@ -149,6 +150,7 @@ def convert_laser_circle_to_point(email, token, survey_name):
 
     print('\n\n---------- Finished ----------\n\n')
 
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -157,6 +159,7 @@ def main():
     convert_laser_circle_to_point(email=args.email,
                                   token=args.token,
                                   survey_name=args.survey_name)
+
 
 if __name__ == "__main__":
     main()
