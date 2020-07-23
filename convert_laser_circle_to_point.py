@@ -18,8 +18,6 @@ def get_parser():
 
     # OPTIONAL ARGUMENTS
     optional_args = parser.add_argument_group('OPTIONAL ARGUMENTS')
-    optional_args.add_argument('--can_batch', required=False, action="store_true",
-                               help='Run process in batches of 100 images.')
     optional_args.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
                                help='Shows function documentation.')
 
@@ -50,23 +48,14 @@ def get_label_annotations(annotation_info, label_name):
                 new_annotation_list.append(annotation)
     return new_annotation_list
 
-def convert_laser_circle_to_point(email, token, survey_name, can_batch=True)
-    # Enter your user email address here.
-    email = 'charley.gros@gmail.com'
-    # Enter your API token here.
-    token = 'DDV6vMU2TvQ0VQQI6bNQjfZ5X88ENc9B'
+
+def convert_laser_circle_to_point(email, token, survey_name):
     # ID of the laser point label.
     label_name = "Laser Point"
     label_id = 1558
-    # Project name
-    project_name = "CircumAntarctic Seafloor Biodiversity"
-    # Survey name
-    survey_name = "NBP1402"
 
+    # Init API
     api = Api(email, token)
-
-    projects = api.get('projects').json()
-    project_id = get_project_id(projects, project_name)
 
     # Get the available annotation shapes.
     # https://biigle.de/doc/api/index.html#api-Shapes-IndexShapes
@@ -75,9 +64,13 @@ def convert_laser_circle_to_point(email, token, survey_name, can_batch=True)
 
     # Get all surveys
     surveys = api.get('volumes').json()
+    # Get info for survey of interest
     survey_dict = get_survey(surveys, survey_name)
-    if not survey_dict:
-        exit()
+    survey_id = survey_dict['id']
+
+    # Get the list of image IDs that belong to the survey of interest
+    image_ids = api.get('volumes/{}/images'.format(survey_id)).json()
+    print("\n\t... Found {} images.".format(len(image_ids)))
 
     post_data = {
         'shape_id': shapes['Point'],
@@ -86,17 +79,13 @@ def convert_laser_circle_to_point(email, token, survey_name, can_batch=True)
         'points': [],
     }
 
+    # Check if can create batch
     can_batch_create = True
     try:
         api.post('annotations')
     except HTTPError as e:
         can_batch_create = False
     print("\n... Batch processing: {}.".format(can_batch_create))
-
-    survey_id = survey_dict['id']
-    # Get the list of image IDs that belong to the survey.
-    image_ids = api.get('volumes/{}/images'.format(survey_id)).json()
-    print("\n\t... Found {} images.".format(len(image_ids)))
 
     batch_size = 1
     batch = []
@@ -164,7 +153,10 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
-    convert_laser_circle_to_point()
+    # Run function
+    convert_laser_circle_to_point(email=args.email,
+                                  token=args.token,
+                                  survey_name=args.survey_name)
 
 if __name__ == "__main__":
     main()
