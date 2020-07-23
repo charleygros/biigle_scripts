@@ -15,8 +15,8 @@ def get_parser():
                                 help='Email address used for BIIGLE account.')
     mandatory_args.add_argument('-t', '--token', required=True, type=str,
                                 help='BIIGLE API token. To generate one: https://biigle.de/settings/tokens')
-    mandatory_args.add_argument('s', '--survey_name', required=True, type=str, example="NBP1402",
-                                help='Survey name.')
+    mandatory_args.add_argument('-s', '--survey_name', required=True, type=str,
+                                help='Survey name, eg NBP1402.')
 
     # OPTIONAL ARGUMENTS
     optional_args = parser.add_argument_group('OPTIONAL ARGUMENTS')
