@@ -2,6 +2,8 @@ import copy
 import requests
 from requests.auth import HTTPBasicAuth
 
+# NOTE: code from: https://github.com/biigle/community-scripts/tree/master/biigle
+
 class Api(object):
    def __init__(self, email, token, base_url = 'https://biigle.de/api/v1', headers = {}):
       """Create a new instance.
