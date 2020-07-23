@@ -15,3 +15,25 @@ git clone https://github.com/charleygros/biigle_scripts.git
 cd biigle_scripts
 pip install -e .
 ```
+
+## How to run a script
+Type the script of interest in your terminal followed by `-h` to get its usage. For instance:
+```bash
+convert_laser_circle_to_point -h
+```
+... gives:
+```bash
+usage: convert_laser_circle_to_point -e EMAIL -t TOKEN -s SURVEY_NAME [-h]
+
+MANDATORY ARGUMENTS:
+  -e EMAIL, --email EMAIL
+                        Email address used for BIIGLE account.
+  -t TOKEN, --token TOKEN
+                        BIIGLE API token. To generate one:
+                        https://biigle.de/settings/tokens
+  -s SURVEY_NAME, --survey_name SURVEY_NAME
+                        Survey name, eg NBP1402.
+
+OPTIONAL ARGUMENTS:
+  -h, --help            Shows function documentation.
+```
