@@ -88,20 +88,21 @@ def pull_patches(email, token, survey_name, label_tree_id, output_folder, label_
         print('\nCreating output folder: {}.'.format(output_folder))
         os.makedirs(output_folder)
 
+    # Get label info
     labels_info_list = api.get('volumes/{}/annotation-labels'.format(survey_id)).json()
     label_tree_info = api.get('label-trees/474').json()
     labels_info_list = add_parent_name(label_tree_info['labels'], labels_info_list)
 
-    # TODO
-    #if label_id != None:
-    #    labels_info_list = [get_label_info(labels_info_list, label_id)]
+    # Pick the label of interest
+    if label_id != None:
+        labels_info_list = [label_info for label_info in labels_info_list if label_info['id'] == label_id]
 
     # Init endpoint URL
     endpoint_url = '{}s/{}/annotations/filter/label/{}'
     # Init patch URL
     patch_url = 'https://biigle.de/storage/largo-patches/{}/{}/{}/{}.jpg'
 
-    for label_dict in [labels_info_list[-10]]:
+    for label_dict in labels_info_list:
         annotations = api.get(endpoint_url.format("volume", survey_id, label_dict['id'])).json()
         if len(annotations) > 0:
             # Label full name
