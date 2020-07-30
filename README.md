@@ -31,7 +31,7 @@ MANDATORY ARGUMENTS:
   -t TOKEN, --token TOKEN
                         BIIGLE API token. To generate one:
                         https://biigle.de/settings/tokens
-  -s SURVEY_NAME, --survey_name SURVEY_NAME
+  -s SURVEY_NAME, --survey-name SURVEY_NAME
                         Survey name, eg NBP1402.
 
 OPTIONAL ARGUMENTS:
