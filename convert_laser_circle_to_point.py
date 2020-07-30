@@ -1,9 +1,7 @@
-import copy
 import argparse
-from requests.exceptions import HTTPError
 from biigle.biigle import Api
 
-BATCH_SIZE = 100
+LABEL_NAME = "Laser Point"
 
 
 def get_parser():
@@ -52,10 +50,6 @@ def get_label_annotations(annotation_info, label_name):
 
 
 def convert_laser_circle_to_point(email, token, survey_name):
-    # ID of the laser point label.
-    label_name = "Laser Point"
-    label_id = 1558
-
     # Init API
     api = Api(email, token)
 
@@ -74,22 +68,6 @@ def convert_laser_circle_to_point(email, token, survey_name):
     image_ids = api.get('volumes/{}/images'.format(survey_id)).json()
     print("\n\t... Found {} images.".format(len(image_ids)))
 
-    post_data = {
-        'shape_id': shapes['Point'],
-        'label_id': label_id,
-        'confidence': 1,
-        'points': [],
-    }
-
-    # Check if can create batch
-    can_batch_create = True
-    try:
-        api.post('annotations')
-    except HTTPError as e:
-        can_batch_create = False
-    print("\n... Batch processing: {}.".format(can_batch_create))
-    batch = []
-
     print("\n... Looping across images.")
     for image_id in image_ids:
         # Check if laser point already exist
@@ -104,7 +82,7 @@ def convert_laser_circle_to_point(email, token, survey_name):
             # Get all annotations for the current image
             annotation_info = api.get('images/{}/annotations'.format(image_id)).json()
             # Get laser annotations for the given image
-            laser_annotations = get_label_annotations(annotation_info, label_name)
+            laser_annotations = get_label_annotations(annotation_info, LABEL_NAME)
 
             # Check if there is some laser annotations
             if len(laser_annotations):
@@ -117,36 +95,21 @@ def convert_laser_circle_to_point(email, token, survey_name):
                             print("NOT IMPLEMENTED YET: laser shape: {}.".format(laser['shape_id']))
                             exit()
 
-                        print('\t\tWrong laser annotation shape on image {}.'.format(laser['image_id']))
-
-                        # Get Laser circle center coordinates
-                        post_data['points'] = laser['points'][:-1]
-
-                        print('\t\t... Converting annotation {} to Point.'.format(laser["id"]))
-                        if can_batch_create:
-                            post_data['image_id'] = image_id
-                            batch.append(copy.copy(post_data))
-                            if len(batch) == BATCH_SIZE:
-                                api.post('annotations', json=batch)
-                                batch = []
-                        else:
-                            # Create a new annotation for the image.
-                            api.post('images/{}/annotations'.format(image_id), json=post_data)
-
-                        # Delete wrong annotation
-                        #api.delete('images/{}/annotations/filter/label/{}'.format(image_id, laser["id"]))
-                        #exit()
+                        print('\t\tImage {} --> converting annotation {} to Point.'.format(laser['image_id'],
+                                                                                           laser["id"]))
+                        api.put('annotations/{}'.format(laser["id"]),
+                                json={
+                                    'shape_id': shapes['Point'],
+                                    'points': laser['points'][:-1]
+                                })
 
                     else:
                         print('\t\tCorrect laser annotation shape on image {}, annotation '
                               '{}.'.format(laser['image_id'], laser["id"]))
-                exit()
-            else:
-                print('\tNo {} found for image {}, skipping.'.format(label_name, image_id))
-                continue
 
-    if can_batch_create and len(batch) > 0:
-       api.post('annotations', json=batch)
+            else:
+                print('\tNo {} found for image {}, skipping.'.format(LABEL_NAME, image_id))
+                continue
 
     print('\n\n---------- Finished ----------\n\n')
 
