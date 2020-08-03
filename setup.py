@@ -6,6 +6,7 @@ setup(name='biigle_scripts',
       entry_points={
             'console_scripts': [
                   'convert_laser_circle_to_point=convert_laser_circle_to_point:main',
-                  'pull_patches=pull_patches:main'
+                  'pull_patches=pull_patches:main',
+                  'review_annotations=review_annotations:main'
             ]}
       )
