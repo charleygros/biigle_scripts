@@ -90,7 +90,7 @@ def pull_patches(email, token, survey_name, label_tree_id, output_folder, label_
 
     # Get label info
     labels_info_list = api.get('volumes/{}/annotation-labels'.format(survey_id)).json()
-    label_tree_info = api.get('label-trees/474').json()
+    label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()
     labels_info_list = add_parent_name(label_tree_info['labels'], labels_info_list)
 
     # Pick the label of interest
