@@ -5,6 +5,9 @@ import requests
 from tqdm import tqdm
 from biigle.biigle import Api
 
+# TODO:
+#   - Add param to select images of interest
+#   - Add possibility to input multiple labels IDs
 
 def get_parser():
     parser = argparse.ArgumentParser(add_help=False)
