@@ -1,9 +1,20 @@
 import os
-import shutil
+import math
 import argparse
-import requests
 from tqdm import tqdm
+from tkinter import Tk, BOTH, Grid, N, E, S, W, Toplevel, IntVar
+from tkinter.ttk import Frame, Style, Button
+from PIL import ImageTk,Image
+
 from biigle.biigle import Api
+
+N_IMG_PER_WND = 16
+N_ROWS = N_COLUMNS = int(math.sqrt(N_IMG_PER_WND))
+# GUI params
+WIDTH_IMG = 120
+HEIGTH_IMG = 120
+WIDTH_WND = 700
+HEIGTH_WND = 600
 
 
 def get_parser():
@@ -15,19 +26,212 @@ def get_parser():
                                 help='Email address used for BIIGLE account.')
     mandatory_args.add_argument('-t', '--token', required=True, type=str,
                                 help='BIIGLE API token. To generate one: https://biigle.de/settings/tokens')
-    mandatory_args.add_argument('-o', '--ifolder', required=True, type=str,
+    mandatory_args.add_argument('-f', '--ifolder', required=True, type=str,
                                 help='Input folder, filled with "pull_patches".')
+    mandatory_args.add_argument('-i', '--label-tree-id', dest='label_tree_id', required=True, type=int,
+                                help='Label tree ID.')
 
     # OPTIONAL ARGUMENTS
     optional_args = parser.add_argument_group('OPTIONAL ARGUMENTS')
+    optional_args.add_argument('-l', '--label-folder', dest='label_folder', required=False, type=str,
+                               help='Label folder to review. If indicated, only patches from this folder are reviewed. '
+                                    'Otherwise, folders from "-f" are reviewed.')
     optional_args.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
                                help='Shows function documentation.')
 
     return parser
 
 
-def review_annotations(email, token, ifolder):
-    pass
+class Window(Frame):
+
+    def __init__(self, master, height, width, list_labels):
+        super().__init__()
+        self.height = height
+        self.width = width
+
+        self.master = master
+
+        self.frame = Frame(self.master)
+        Grid.rowconfigure(self.master, 0, weight=1)
+        Grid.columnconfigure(self.master, 0, weight=1)
+        self.frame.grid(row=0, column=0, sticky=N + S + E + W)
+        grid = Frame(self.frame)
+        grid.grid(sticky=N + S + E + W, column=0, row=7, columnspan=2)
+        Grid.rowconfigure(self.frame, 7, weight=1)
+        Grid.columnconfigure(self.frame, 0, weight=1)
+
+        self.labelVar = None
+        self.changes_list = []
+
+        n_column_buttons = 3
+        list_labels.append("NOT VME")
+        n_row_buttons = math.ceil(float(len(list_labels)) / n_column_buttons)
+        cmpt_label = 0
+        list_btn = []  # creates list to store the buttons ins
+        for x in range(n_column_buttons):
+            for y in range(n_row_buttons):
+                if cmpt_label < len(list_labels):
+                    list_btn.append(Button(self.frame, text=list_labels[cmpt_label], command=lambda c=cmpt_label: self.set_label(list_btn[c].cget("text"))))
+                    list_btn[cmpt_label].grid(column=x, row=y, sticky=N + S + E + W)
+                    cmpt_label += 1
+
+        for x in range(n_column_buttons):
+            Grid.columnconfigure(self.frame, x, weight=1)
+        for y in range(n_row_buttons):
+            Grid.rowconfigure(self.frame, y, weight=1)
+
+        self.accept_key = IntVar()
+        self.master.bind("a", self.accept)
+        self.master.bind("q", self.quit)
+
+    def show_img(self, fname_img, taxa):
+        self.newWindow = Toplevel(self.master)
+        self.sample = Sample(self.newWindow, fname_img, taxa, self.height, self.width)
+
+    def set_label(self, label):
+        self.labelVar = label
+        self.changes_list.append([self.sample.annotation_id, self.labelVar])
+        self.labelVar = None
+        self.sample.set_annotation_id(None)
+
+    def quit(self, event=None):
+        self.accept_key.set(1)
+        self.master.quit()
+
+    def accept(self, event=None):
+        self.accept_key.set(1)
+
+    def reset_accept(self, event=None):
+        self.accept_key.set(0)
+        self.changes_list = []
+
+
+class Sample:
+    def __init__(self, master, fname_img_list, taxa, height, width):
+        self.master = master
+        self.frame = Frame(self.master,
+                           width=width * N_COLUMNS,
+                           height=height * N_ROWS)
+
+        self.master.title(taxa)
+        self.frame.pack(fill=BOTH, expand=1, side="left")
+
+        self.annotation_id = None
+
+        Style().configure("TFrame", background="#333")
+        image_count = 0
+        for fname in fname_img_list:
+            annotation_id = os.path.split(fname)[1].split('.jpg')[0]
+            image_count += 1
+            r, c = divmod(image_count-1, N_COLUMNS)
+            im = Image.open(fname)
+            resized = im.resize((height, width), Image.ANTIALIAS)
+            tkimage = ImageTk.PhotoImage(resized)
+            btn = Button(self.frame,
+                         image=tkimage,
+                         command=lambda a=annotation_id: self.set_annotation_id(annotation_id))
+            btn.image = tkimage
+            btn.grid(row=r, column=c)
+
+    def set_annotation_id(self, id_):
+        self.annotation_id = id_
+
+    def destroy(self):
+        self.master.destroy()
+
+
+def get_folders_match_tree(label_tree_info):
+    out_dict = {}
+    for label_info in label_tree_info:
+        parent_info = [label_tree_info_ for label_tree_info_ in label_tree_info
+                       if label_tree_info_['id'] == label_info['parent_id']]
+
+        if len(parent_info) == 0:  # No parent
+            parent_name = ''
+            key_name = label_info['name'].replace(' ', '_')
+        elif len(parent_info) == 1:
+            parent_name = parent_info[0]['name']
+            key_name = parent_name.replace(' ', '_') + '-' + label_info['name'].replace(' ', '_')
+        else:
+            print('ERROR: multiple parents: {}.'.format(label_info))
+            exit()
+
+        out_dict[key_name] = label_info
+
+    return out_dict
+
+
+def review_annotations(email, token, label_tree_id, input_folder, label_folder=None):
+    # Init API
+    api = Api(email, token)
+
+    # subfolder list
+    taxa_list = [f for f in os.listdir(input_folder) if os.path.isdir(os.path.join(input_folder, f))]
+    if label_folder is None:
+        print('\nFound {} taxa.'.format(len(taxa_list)))
+    else:
+        if os.path.isdir(os.path.join(input_folder, label_folder)):
+            taxa_list = [label_folder]
+            print('\nReviewing {}.'.format(os.path.join(input_folder, label_folder)))
+        else:
+            print('\nFolder not found: {}.'.format(os.path.join(input_folder, label_folder)))
+            exit()
+
+    # Get all labels from label tree
+    label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
+    label_dict = get_folders_match_tree(label_tree_info)
+
+    # Init GUI
+    gui = Tk()
+    gui.geometry(str(WIDTH_WND) + "x" + str(HEIGTH_WND) + "+" + str(550) + "+" + str(0))
+    # Init main window
+    app = Window(master=gui,
+                 height=HEIGTH_IMG,
+                 width=WIDTH_IMG,
+                 list_labels=sorted(list(label_dict.keys())))
+
+    # Loop across taxa
+    for taxa in taxa_list:
+        print('\nReviewing: {} ...'.format(taxa))
+        taxa_folder = os.path.join(input_folder, taxa)
+        fname_list = [f for f in os.listdir(taxa_folder) if f.endswith('.jpg')]
+        fname_nested = [fname_list[i:i + N_IMG_PER_WND] for i in range(0, len(fname_list), N_IMG_PER_WND)]
+
+        # Review per chuncks
+        for fname_sublist in tqdm(fname_nested, desc="Reviewing"):
+            path_list = [os.path.join(taxa_folder, f) for f in fname_sublist]
+
+            # Show image and wait
+            app.show_img(path_list, taxa)
+            app.wait_variable(app.accept_key)
+            # Close window
+            app.sample.destroy()
+            # Get changes
+            change_list = app.changes_list
+            # Reset
+            app.reset_accept()
+
+            # Loop across changes
+            for change in change_list:
+                annotation_id, annotation_folder = change
+                # Change label
+                api.post('annotations/{}/labels'.format(annotation_id),
+                         json={'label_id': label_dict[annotation_folder]['id'],
+                               'confidence': 1})
+                # Remove old label
+                old_label_id = [ann['id'] for ann in api.get('annotations/{}/labels'.format(annotation_id)).json()
+                                if ann['label']['name'] == taxa][0]
+                api.delete('annotation-labels/{}'.format(old_label_id))
+                # Inform about change
+                image_id = api.get('annotations/{}'.format(annotation_id)).json()['image_id']
+                image_info = api.get('images/{}'.format(image_id)).json()
+                print('\n\tChange annotation {} from {} to {} on image {} (image ID: {}).'.format(annotation_id,
+                                                                                                taxa,
+                                                                                                annotation_folder,
+                                                                                                image_info['filename'],
+                                                                                                image_info['id']))
+
+    gui.destroy()
 
 
 def main():
@@ -37,7 +241,9 @@ def main():
     # Run function
     review_annotations(email=args.email,
                        token=args.token,
-                       input_folder=args.ifolder)
+                       label_tree_id=args.label_tree_id,
+                       input_folder=args.ifolder,
+                       label_folder=args.label_folder)
 
 
 if __name__ == "__main__":
