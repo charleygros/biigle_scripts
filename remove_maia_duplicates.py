@@ -76,14 +76,17 @@ def remove_maia_duplicates(email, token, label_tree_id, survey_name, maia_date, 
                 if annotation_info['created_at'].startswith(maia_date):
                     if range_image is not None and annotation_info['image_id'] in \
                             list(range(range_image[0], range_image[1]+1)):
-                        labels_in_img = [l['labels'][0]['label_id'] for l in
+                        labels_in_img = [l for l in
                                          api.get('images/{}/annotations'.format(annotation_info['image_id'])).json()]
-                        if len(labels_in_img) > 1:
-                            print(api.get('images/{}/annotations'.format(annotation_info['image_id'])).json())
+                        labels_in_img = [l for l in labels_in_img if int(l['labels'][0]['label_id']) == int(label['id'])
+                                         and not l['created_at'].startswith(maia_date)]
+                        if len(labels_in_img):
                             print('\tDeleting: ')
                             print(annotation_info)
                             api.delete('annotations/{}'.format(id_))
                         else:
+                            print('\tSave: ')
+                            print(annotation_info)
                             cmpt_new += 1
                     else:
                         cmpt_new += 1
