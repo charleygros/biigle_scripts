@@ -24,11 +24,12 @@ def get_parser():
 
     # OPTIONAL ARGUMENTS
     optional_args = parser.add_argument_group('OPTIONAL ARGUMENTS')
-    optional_args.add_argument('-l', '--label-id', dest='label_id', required=False, type=int,
+    optional_args.add_argument('-l', '--label-id', dest='label_id', required=False, type=str,
                                help='Label ID to clean. If indicated, only annotations from this label are reviewed. '
                                     'Otherwise, all patches are reviewed. You can find the ID of a label in the JSON '
                                     'output of the label tree, eg https://biigle.de/api/v1/label-trees/1, by replacing '
-                                    '"1" by the ID of your label-tree of interest.')
+                                    '"1" by the ID of your label-tree of interest. If multiple, separate them with '
+                                    'commas.')
     optional_args.add_argument('-r', '--range-image', dest='range_image', required=False, type=str,
                                help='Range of image ID for which the cleaning is needed, separated by commas, eg'
                                     '"1234,5678".')
@@ -60,7 +61,7 @@ def remove_maia_duplicates(email, token, label_tree_id, survey_name, maia_date, 
     if label_id is None:
         label_list = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
     else:
-        label_list = [{'id': label_id}]
+        label_list = [{'id': i} for i in label_id]
 
     cmpt_new = 0
     # Loop through labels
@@ -107,7 +108,7 @@ def main():
                            survey_name=args.survey_name,
                            maia_date=args.date,
                            range_image=[int(r) for r in args.range_image.split(',')],
-                           label_id=args.label_id)
+                           label_id=[int(i) for i in args.label_id.split(',')])
 
 
 if __name__ == "__main__":
