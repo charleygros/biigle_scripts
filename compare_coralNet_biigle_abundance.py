@@ -161,6 +161,7 @@ def compare_coralNet_biigle_abundance(fname_coralnet, fname_biigle, fname_transl
             plt.figure(figsize=(5, 10))
             sns.catplot(data=df_plot, order=["CoralNet", "BIIGLE"], palette="Set2", jitter=True)
             plt.ylabel('Abundance per image [%]')
+            plt.title(label)
             plt.ylim(0)
             plt.savefig(fname_out)
             plt.close()
