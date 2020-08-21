@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import pandas as pd
 
+
 def get_parser():
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -12,8 +13,8 @@ def get_parser():
                                 help='CoralNet csv file, output from "project_coralNet_envGrid.R".')
     mandatory_args.add_argument('-b', '--biigle', required=True, type=str,
                                 help='BIIGLE csv file.')
-    mandatory_args.add_argument('-o', '--o', required=True, type=str,
-                                help='Output csv filename.')
+    mandatory_args.add_argument('-o', '--ofolder', required=True, type=str,
+                                help='Output folder. Created if does not exist yet.')
 
     # OPTIONAL ARGUMENTS
     optional_args = parser.add_argument_group('OPTIONAL ARGUMENTS')
@@ -27,55 +28,35 @@ def get_parser():
     return parser
 
 
-def compute_biigle_abundance(data, labels_of_interest, images_of_interest):
-    dict_out = {l: [] for l in labels_of_interest}
-    dict_out["im"] = []
-
+def get_presence_absence_biigle(df_biigle, labels_of_interest):
+    # Init empty dict
+    df_biigle_detection = pd.DataFrame(columns=['Filename'] + labels_of_interest)
     # Loop across images
-    for im in images_of_interest:
-        dict_out['im'].append(im)
-        df_im = data[data["filename"] == im]
-        # Get image attributes
-        height = float(df_im.iloc[0, :]["attributes"].split('"height":')[-1].split(',')[0])
-        width = float(df_im.iloc[0, :]["attributes"].split('"width":')[-1].split(',')[0])
-        # Loop across labels of interest
-        for label in labels_of_interest:
-            df_im_label = df_im[df_im['label_hierarchy'] == label]
-            area = 0
-            for index, row in df_im_label.iterrows():
-                if row['shape_name'] == "Circle":
-                    radius = float(row['points'].split(',')[2].split(']')[0])
-                    area += np.pi * radius * radius
-                elif row['shape_name'] in ['Rectangle', 'LineString', 'Polygon']:
-                    coords = [float(c) for c in row['points'].split('[')[-1].split(']')[0].split(',')]
-                    x, y = coords[0::2], coords[1::2]
-                    area += PolyArea(x, y)
-                elif row['shape_name'] == 'Point':
-                    pass
-                else:
-                    print(row)
-                    exit()
-            # Compute abundance
-            dict_out[label].append(float(area) * 100. / (height * width))
+    for n_ii, ii in enumerate(df_biigle['filename'].unique().tolist()):
+        # init dict
+        dict_cur = {l: 0 for l in labels_of_interest}
+        dict_cur['Filename'] = ii
+        # Select rows
+        df_cur = df_biigle[df_biigle['filename'] == ii]
+        # Get labels
+        labels_cur = df_cur['label_hierarchy'].unique().tolist()
+        dict_update = {l: 1 for l in labels_cur}
+        # Update dict
+        dict_cur.update(dict_update)
+        # Add row to df_biigle_detection
+        df_biigle_detection = pd.concat([df_biigle_detection, pd.DataFrame(dict_cur, index=[n_ii])])
 
-    return pd.DataFrame.from_dict(dict_out)
+    return df_biigle_detection
 
 
-def convert_naming(data, table, dest, src):
-    for label_dest in table[dest].unique().tolist():
-        label_src = table[table[dest] == label_dest][src].tolist()
-        data[label_dest] = data[label_src].sum(axis=1)
-    return data[["im"] + table[dest].unique().tolist()]
+def compare_coralNet_biigle_detection(fname_coralnet, fname_biigle, fname_translation, ofolder, list_image_id=None):
+    # Create ofolder if does not exist yet
+    if not os.path.isdir(ofolder):
+        os.makedirs(ofolder)
 
+    # DF translation
+    df_translation = pd.read_csv(fname_translation)
 
-def sum_families(data, families):
-    list_families = [f for f in families if not '-' in f]
-    for fam in list_families:
-        data[fam] = data[[f for f in families if f.startswith(fam)]].sum(axis=1)
-    return data
-
-
-def compare_coralNet_biigle_detection(fname_coralnet, fname_biigle, fname_translation, ofname, list_image_id=None):
     # BIIGLE data
     df_biigle = pd.read_csv(fname_biigle)[['label_hierarchy', 'image_id', 'filename', 'shape_name', 'points',
                                            'attributes']]
@@ -90,51 +71,55 @@ def compare_coralNet_biigle_detection(fname_coralnet, fname_biigle, fname_transl
     print('\n{} images selected.'.format(len(list_image_fname)))
     # Keep images of interest
     df_biigle = df_biigle[df_biigle['filename'].isin(list_image_fname)]
+    # Get CoralNet filename
+    df_biigle['filename'] = df_biigle['filename'].str.split("__", expand=True)[1].str.split(".jpg", expand=True)[0]
+    # Get Presence Absence data from BIIGLE
+    df_pa_biigle = get_presence_absence_biigle(df_biigle=df_biigle,
+                                               labels_of_interest=df_translation['BIIGLE'].unique().tolist())
 
+    # CORALNET data
+    df_coralNet = pd.read_csv(fname_coralnet)
 
+    # TRANSLATION
+    biigle2coral = {c: b for c, b in
+                    zip(df_translation['BIIGLE'].tolist(), df_translation['CoralNet'].tolist())}
 
+    # Init dict
+    result_labels = [l for l in df_translation['BIIGLE'].unique().tolist() if '-' in l]
+    dict_cell = {'cell': []}
+    dict_cell.update({l: [] for l in result_labels})
+    for cell in df_coralNet['cell'].unique().tolist():
+        coral_cur = df_coralNet[df_coralNet['cell'] == cell]
+        fname_list = coral_cur['Filename'].unique().tolist()
+        biigle_cur = df_pa_biigle[df_pa_biigle['Filename'].isin(fname_list)]
+        # Sum
+        biigle_sum = biigle_cur.sum()
+        coral_sum = coral_cur.sum()
+        # Loop across labels
+        for l in result_labels:
+            if biigle_sum[l]:
+                dict_cell[l].append(1 if coral_sum[biigle2coral[l]] else 0)
+            else:
+                dict_cell[l].append(np.nan)
+        dict_cell['cell'].append(cell)
+    df_cell = pd.DataFrame.from_dict(dict_cell)
 
-    """
-    # Translation table between CoralNet and BIIGLE
-    df_translation = pd.read_csv(fname_translation)
+    dict_result = {'label': [], 'TP': [], 'FN': [], 'recall': []}
+    for l in result_labels:
+        counts = df_cell[l].value_counts()
+        if len(counts):
+            tp = counts[1] if 1 in counts else 0
+            fn = counts[0] if 0 in counts else 0
+            dict_result['label'].append(l)
+            dict_result['TP'].append(tp)
+            dict_result['FN'].append(fn)
+            dict_result['recall'].append(tp * 100. / (tp + fn))
+    df_result = pd.DataFrame.from_dict(dict_result)
 
-    # Compute CoralNet Abundance
-    df_coralNet_abundance = compute_coralNet_abundance(data=df_coralNet,
-                                                       labels_of_interest=df_translation['CoralNet'].unique().tolist(),
-                                                       unscorable_labels=CORALNET_UNSCORABLE,
-                                                       images_of_interest=list_image_fname)
-    # Move from CoralNet to BIIGLE naming
-    df_coralNet_abundance = convert_naming(data=df_coralNet_abundance,
-                                           table=df_translation,
-                                           dest='BIIGLE',
-                                           src='CoralNet')
+    # Save results
+    df_cell.to_csv(os.path.join(ofolder, "agreement_per_cell.csv"), index=False)
+    df_result.to_csv(os.path.join(ofolder, "recall_per_label.csv"), index=False)
 
-    # Compute BIIGLE Abundance
-    df_biigle_abundance = compute_biigle_abundance(data=df_biigle,
-                                                   labels_of_interest=df_translation['BIIGLE'].unique().tolist(),
-                                                   images_of_interest=list_image_fname)
-
-    # Sum big families
-    df_biigle_abundance = sum_families(data=df_biigle_abundance,
-                                        families=df_translation['BIIGLE'].unique().tolist())
-    df_coralNet_abundance = sum_families(data=df_coralNet_abundance,
-                                         families=df_translation['BIIGLE'].unique().tolist())
-
-    # Violin plots
-    for label in df_translation['BIIGLE'].unique().tolist():
-        vals_biigle = df_biigle_abundance[label].tolist()
-        vals_coralNet = df_coralNet_abundance[label].tolist()
-        if sum(vals_coralNet) or sum(vals_biigle):
-            fname_out = os.path.join(ofolder, label+'.png')
-            df_plot = pd.DataFrame.from_dict({'CoralNet': vals_coralNet, 'BIIGLE': vals_biigle})
-            plt.figure(figsize=(5, 10))
-            sns.catplot(data=df_plot, order=["CoralNet", "BIIGLE"], palette="Set2", jitter=True)
-            plt.ylabel('Abundance per image [%]')
-            plt.title(label)
-            plt.ylim(0)
-            plt.savefig(fname_out)
-            plt.close()
-    """
 
 def main():
     parser = get_parser()
@@ -155,7 +140,7 @@ def main():
     compare_coralNet_biigle_detection(fname_coralnet=args.coral_net,
                                       fname_biigle=args.biigle,
                                       fname_translation=args.t,
-                                      ofname=args.o,
+                                      ofolder=args.ofolder,
                                       list_image_id=list_image_id)
 
 

@@ -33,7 +33,7 @@ O_3D_MshUS,Octocorals-Fleshy_Mushroom_unstalked
 O_3D_NFArb,Octocorals-NoFleshy_Bushy
 O_3D_NFBsh,Octocorals-NoFleshy_Arborescent
 O_2D_Rigid,Octocorals-SeaFan_Coral
-O_2D_FernC,Octocorals-SeaFan_Fern_complexe
+O_2D_FernC,Octocorals-SeaFan_Fern_complex
 O_2D_FernS,Octocorals-SeaFan_Fern_simple
 O_Seapen,Octocorals-SeaPen
 O_Whip,Octocorals-SeaWhip
@@ -60,3 +60,8 @@ UBS_Sp,Sponges
 W_Tube,Worms-Tube
 WP_TubeDF,Worms
 WP_TubeSF,Worms
+NoID,NoIdea
+NoID_ExpOp,NoIdea
+NoID_TBD,NoIdea
+Unscorable,NoIdea
+Brachiopoda,Brachiopoda
