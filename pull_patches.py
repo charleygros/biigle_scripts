@@ -8,6 +8,11 @@ from biigle.biigle import Api
 # TODO:
 #   - Add possibility to input multiple labels IDs
 
+# Example:
+#   python pull_patches.py -e charley.gros@gmail.com -t SVRTBSUtVcQXZHjkNOxI29Zg2yu0nuhw -s PS96 -i 474 -o R:\IMAS\An
+# tarctic_Seafloor\Clean_Data_For_Permanent_Storage\PS96\PS96_6_VMEs_test -r 730676,743190 --skip
+
+
 def get_parser():
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -144,6 +149,7 @@ def pull_patches(email, token, survey_name, label_tree_id, output_folder, range_
                 print('\tOutput folder already exists: {}.'.format(label_ofolder))
                 if skip:
                     print('\t\tSkipping.')
+                    continue
             else:
                 print('\tCreating output folder: {}.'.format(label_ofolder))
                 os.makedirs(label_ofolder)
