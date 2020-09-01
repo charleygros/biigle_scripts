@@ -2,7 +2,9 @@ import os
 import shutil
 import math
 import argparse
+from datetime import datetime
 from tqdm import tqdm
+import pandas as pd
 from tkinter import Tk, BOTH, Grid, N, E, S, W, Toplevel, IntVar
 from tkinter.ttk import Frame, Style, Button
 from PIL import ImageTk,Image
@@ -183,6 +185,10 @@ def review_annotations(email, token, label_tree_id, input_folder, label_folder=N
     label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
     label_dict = get_folders_match_tree(label_tree_info)
 
+    # Log file
+    fname_log = os.path.join(input_folder, "logfile_"+datetime.now().strftime("%d/%m/%Y-%H:%M:%S")+".csv")
+    dict_log = {"annotation_id": [], "from": [], "to": [], "who": []}
+
     # Init GUI
     gui = Tk()
     gui.geometry(str(WIDTH_WND) + "x" + str(HEIGTH_WND) + "+" + str(550) + "+" + str(0))
@@ -230,6 +236,12 @@ def review_annotations(email, token, label_tree_id, input_folder, label_folder=N
                 ofname = os.path.join(input_folder, annotation_folder, str(annotation_id)+'.jpg')
                 shutil.copyfile(ifname, ofname)
 
+                # fill Log file
+                dict_log["annotation_id"].append(annotation_id)
+                dict_log["from"].append(taxa)
+                dict_log["to"].append(annotation_folder)
+                dict_log["who"].append(email)
+
                 # Inform about change
                 image_id = api.get('annotations/{}'.format(annotation_id)).json()['image_id']
                 image_info = api.get('images/{}'.format(image_id)).json()
@@ -240,6 +252,11 @@ def review_annotations(email, token, label_tree_id, input_folder, label_folder=N
                                                                                                 image_info['id']))
 
     gui.destroy()
+
+    # Save Log file
+    df = pd.DataFrame.from_dict(dict_log)
+    df.to_csv(fname_log)
+    print('\nSaving log file in: {}'.format(fname_log))
 
 
 def main():
