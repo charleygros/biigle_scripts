@@ -34,6 +34,8 @@ def get_parser():
     optional_args.add_argument('-r', '--range-image', dest='range_image', required=False, type=str,
                                help='Range of image ID of interest, separated by commas, eg'
                                     '"1234,5678".')
+    optional_args.add_argument('--skip', dest='skip', required=False, action='store_true',
+                               help='Skip taxa whose folder already exists.')
     optional_args.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
                                help='Shows function documentation.')
 
@@ -81,7 +83,7 @@ def add_parent_name(label_tree_info, labels_info_list):
     return out_list
 
 
-def pull_patches(email, token, survey_name, label_tree_id, output_folder, range_image=[], label_id=None):
+def pull_patches(email, token, survey_name, label_tree_id, output_folder, range_image=[], label_id=None, skip=False):
     # Init API
     api = Api(email, token)
 
@@ -119,7 +121,7 @@ def pull_patches(email, token, survey_name, label_tree_id, output_folder, range_
         for image_id in tqdm(images_of_interest, desc="Fetching annotations of interest"):
             try:
                 annotations_list = api.get('images/{}/annotations'.format(image_id)).json()
-                annotations_id_list = [a['id'] for a in annotations_list]
+                annotations_id_list = [str(a['id']) for a in annotations_list]
                 list_img_annotations = list_img_annotations + annotations_id_list
             except:
                 pass
@@ -140,6 +142,8 @@ def pull_patches(email, token, survey_name, label_tree_id, output_folder, range_
             label_ofolder = os.path.join(output_folder, full_name)
             if os.path.isdir(label_ofolder):
                 print('\tOutput folder already exists: {}.'.format(label_ofolder))
+                if skip:
+                    print('\t\tSkipping.')
             else:
                 print('\tCreating output folder: {}.'.format(label_ofolder))
                 os.makedirs(label_ofolder)
@@ -150,7 +154,8 @@ def pull_patches(email, token, survey_name, label_tree_id, output_folder, range_
                     url = patch_url.format(image_uuid[:2], image_uuid[2:4], image_uuid, annotation_id)
                     patch = requests.get(url, stream=True)
                     if patch.ok != True:
-                        raise Exception('Failed to fetch {}'.format(url))
+                        print('Failed to fetch {}'.format(url))
+                        continue
                     with open(os.path.join(label_ofolder, '{}.jpg'.format(annotation_id)), 'wb') as f:
                         patch.raw.decode_content = True
                         shutil.copyfileobj(patch.raw, f)
@@ -169,7 +174,8 @@ def main():
                  label_tree_id=args.label_tree_id,
                  output_folder=args.ofolder,
                  range_image=[int(r) for r in args.range_image.split(',')] if args.range_image is not None else [],
-                 label_id=args.label_id)
+                 label_id=args.label_id,
+                 skip=args.skip)
 
 
 if __name__ == "__main__":
