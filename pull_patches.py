@@ -6,7 +6,6 @@ from tqdm import tqdm
 from biigle.biigle import Api
 
 # TODO:
-#   - Add param to select images of interest
 #   - Add possibility to input multiple labels IDs
 
 def get_parser():
@@ -32,6 +31,9 @@ def get_parser():
                                     'Otherwise, all patches are downloaded. You can find the ID of a label in the JSON '
                                     'output of the label tree, eg https://biigle.de/api/v1/label-trees/1, by replacing '
                                     '"1" by the ID of your label-tree of interest.')
+    optional_args.add_argument('-r', '--range-image', dest='range_image', required=False, type=str,
+                               help='Range of image ID of interest, separated by commas, eg'
+                                    '"1234,5678".')
     optional_args.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
                                help='Shows function documentation.')
 
@@ -55,11 +57,16 @@ def get_survey(surveys, survey_name):
 
 
 def add_parent_name(label_tree_info, labels_info_list):
+    id_of_interest = [l['id'] for l in label_tree_info]
+
     out_list = []
     for label_info in labels_info_list:
+        # Discard
+        if not label_info['id'] in id_of_interest:
+            continue
+
         parent_info = [label_tree_info_ for label_tree_info_ in label_tree_info
                        if label_tree_info_['id'] == label_info['parent_id']]
-
         if len(parent_info) == 0:  # No parent
             parent_name = ''
         elif len(parent_info) == 1:
@@ -74,7 +81,7 @@ def add_parent_name(label_tree_info, labels_info_list):
     return out_list
 
 
-def pull_patches(email, token, survey_name, label_tree_id, output_folder, label_id=None):
+def pull_patches(email, token, survey_name, label_tree_id, output_folder, range_image=[], label_id=None):
     # Init API
     api = Api(email, token)
 
@@ -100,13 +107,27 @@ def pull_patches(email, token, survey_name, label_tree_id, output_folder, label_
     if label_id != None:
         labels_info_list = [label_info for label_info in labels_info_list if label_info['id'] == label_id]
 
-    # Init endpoint URL
-    endpoint_url = '{}s/{}/annotations/filter/label/{}'
     # Init patch URL
     patch_url = 'https://biigle.de/storage/largo-patches/{}/{}/{}/{}.jpg'
 
+    # List annotations of interest
+    if len(range_image):
+        list_img_annotations = []
+        images = api.get('volumes/{}/files'.format(survey_id)).json()
+        images_range = list(range(range_image[0], range_image[1]+1))
+        images_of_interest = [ii for ii in images_range if ii in images]
+        for image_id in tqdm(images_of_interest, desc="Fetching annotations of interest"):
+            try:
+                annotations_list = api.get('images/{}/annotations'.format(image_id)).json()
+                annotations_id_list = [a['id'] for a in annotations_list]
+                list_img_annotations = list_img_annotations + annotations_id_list
+            except:
+                pass
+    else:
+        list_img_annotations = None
+
     for label_dict in labels_info_list:
-        annotations = api.get(endpoint_url.format("volume", survey_id, label_dict['id'])).json()
+        annotations = api.get('volumes/{}/image-annotations/filter/label/{}'.format(survey_id, label_dict['id'])).json()
         if len(annotations) > 0:
             # Label full name
             full_name = label_dict['name'].replace(' ', '_')
@@ -124,13 +145,15 @@ def pull_patches(email, token, survey_name, label_tree_id, output_folder, label_
                 os.makedirs(label_ofolder)
 
             for annotation_id, image_uuid in tqdm(annotations.items(), desc="Pulling"):
-                url = patch_url.format(image_uuid[:2], image_uuid[2:4], image_uuid, annotation_id)
-                patch = requests.get(url, stream=True)
-                if patch.ok != True:
-                    raise Exception('Failed to fetch {}'.format(url))
-                with open(os.path.join(label_ofolder, '{}.jpg'.format(annotation_id)), 'wb') as f:
-                    patch.raw.decode_content = True
-                    shutil.copyfileobj(patch.raw, f)
+                if list_img_annotations is None or (len(list_img_annotations) > 0 and
+                                                    annotation_id in list_img_annotations):
+                    url = patch_url.format(image_uuid[:2], image_uuid[2:4], image_uuid, annotation_id)
+                    patch = requests.get(url, stream=True)
+                    if patch.ok != True:
+                        raise Exception('Failed to fetch {}'.format(url))
+                    with open(os.path.join(label_ofolder, '{}.jpg'.format(annotation_id)), 'wb') as f:
+                        patch.raw.decode_content = True
+                        shutil.copyfileobj(patch.raw, f)
 
     print('\n\n---------- Finished ----------\n\n')
 
@@ -145,6 +168,7 @@ def main():
                  survey_name=args.survey_name,
                  label_tree_id=args.label_tree_id,
                  output_folder=args.ofolder,
+                 range_image=[int(r) for r in args.range_image.split(',')] if args.range_image is not None else [],
                  label_id=args.label_id)
 
 
