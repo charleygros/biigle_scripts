@@ -1,4 +1,5 @@
 import os
+import shutil
 import math
 import argparse
 from tqdm import tqdm
@@ -90,9 +91,10 @@ class Window(Frame):
 
     def set_label(self, label):
         self.labelVar = label
-        self.changes_list.append([self.sample.annotation_id, self.labelVar])
+        self.changes_list = self.changes_list + \
+                            [[annotation_id, self.labelVar] for annotation_id in self.sample.annotation_ids]
         self.labelVar = None
-        self.sample.set_annotation_id(None)
+        self.sample.annotation_ids = []
 
     def quit(self, event=None):
         self.accept_key.set(1)
@@ -116,25 +118,25 @@ class Sample:
         self.master.title(taxa)
         self.frame.pack(fill=BOTH, expand=1, side="left")
 
-        self.annotation_id = None
+        self.annotation_ids = []
 
         Style().configure("TFrame", background="#333")
         image_count = 0
+        list_patch = []
         for fname in fname_img_list:
             annotation_id = os.path.split(fname)[1].split('.jpg')[0]
-            image_count += 1
-            r, c = divmod(image_count-1, N_COLUMNS)
+            r, c = divmod(image_count, N_COLUMNS)
             im = Image.open(fname)
             resized = im.resize((height, width), Image.ANTIALIAS)
             tkimage = ImageTk.PhotoImage(resized)
-            btn = Button(self.frame,
-                         image=tkimage,
-                         command=lambda a=annotation_id: self.set_annotation_id(annotation_id))
-            btn.image = tkimage
-            btn.grid(row=r, column=c)
+            list_patch.append(Button(self.frame,
+                                     image=tkimage,
+                                     command=lambda
+                                         annotation_id=annotation_id: self.annotation_ids.append(annotation_id)))
+            list_patch[image_count].image = tkimage
+            list_patch[image_count].grid(row=r, column=c)
 
-    def set_annotation_id(self, id_):
-        self.annotation_id = id_
+            image_count += 1
 
     def destroy(self):
         self.master.destroy()
@@ -215,13 +217,19 @@ def review_annotations(email, token, label_tree_id, input_folder, label_folder=N
             for change in change_list:
                 annotation_id, annotation_folder = change
                 # Change label
-                api.post('annotations/{}/labels'.format(annotation_id),
-                         json={'label_id': label_dict[annotation_folder]['id'],
-                               'confidence': 1})
+                #api.post('annotations/{}/labels'.format(annotation_id),
+                #         json={'label_id': label_dict[annotation_folder]['id'],
+                #               'confidence': 1})
                 # Remove old label
-                old_label_id = [ann['id'] for ann in api.get('annotations/{}/labels'.format(annotation_id)).json()
-                                if ann['label']['name'] == taxa][0]
-                api.delete('annotation-labels/{}'.format(old_label_id))
+                #old_label_id = [ann['id'] for ann in api.get('annotations/{}/labels'.format(annotation_id)).json()
+                #                if ann['label']['name'] == taxa][0]
+                #api.delete('annotation-labels/{}'.format(old_label_id))
+
+                # Move patch folder
+                ifname = os.path.join(input_folder, taxa, str(annotation_id)+'.jpg')
+                ofname = os.path.join(input_folder, annotation_folder, str(annotation_id)+'.jpg')
+                shutil.copyfile(ifname, ofname)
+
                 # Inform about change
                 image_id = api.get('annotations/{}'.format(annotation_id)).json()['image_id']
                 image_info = api.get('images/{}'.format(image_id)).json()
