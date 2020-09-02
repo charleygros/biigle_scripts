@@ -235,18 +235,14 @@ def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_pa
             for change in change_list:
                 annotation_id, annotation_folder = change
                 # Change label
-                #api.post('annotations/{}/labels'.format(annotation_id),
-                #         json={'label_id': label_dict[annotation_folder]['id'],
-                #               'confidence': 1})
-                # Remove old label
-                #old_label_id = [ann['id'] for ann in api.get('annotations/{}/labels'.format(annotation_id)).json()
-                #                if ann['label']['name'] == taxa][0]
-                #api.delete('annotation-labels/{}'.format(old_label_id))
+                api.post('image-annotations/{}/labels'.format(annotation_id),
+                         json={'label_id': label_dict[annotation_folder]['id'],
+                               'confidence': 1})
 
-                # Move patch folder
-                ifname = os.path.join(input_folder, taxa, str(annotation_id)+'.jpg')
-                ofname = os.path.join(input_folder, annotation_folder, str(annotation_id)+'.jpg')
-                #shutil.copyfile(ifname, ofname)
+                # Remove old label
+                old_label_id = [ann['id'] for ann in api.get('image-annotations/{}/labels'.format(annotation_id)).json()
+                                if ann["label_id"] == label_dict[taxa]['id']][0]
+                api.delete('image-annotation-labels/{}'.format(old_label_id))
 
                 # fill Log file
                 dict_log["annotation_id"].append(annotation_id)
@@ -255,13 +251,18 @@ def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_pa
                 dict_log["who"].append(email)
 
                 # Inform about change
-                image_id = api.get('annotations/{}'.format(annotation_id)).json()['image_id']
+                image_id = api.get('image-annotations/{}'.format(annotation_id)).json()['image_id']
                 image_info = api.get('images/{}'.format(image_id)).json()
                 print('\n\tChange annotation {} from {} to {} on image {} (image ID: {}).'.format(annotation_id,
                                                                                                 taxa,
                                                                                                 annotation_folder,
                                                                                                 image_info['filename'],
                                                                                                 image_info['id']))
+
+                # Move patch folder
+                ifname = os.path.join(input_folder, taxa, str(annotation_id)+'.jpg')
+                ofname = os.path.join(input_folder, annotation_folder, str(annotation_id)+'.jpg')
+                shutil.move(ifname, ofname)
 
             # Quit if asked
             if app.quit_:
