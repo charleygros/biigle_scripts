@@ -39,7 +39,8 @@ def get_parser():
     optional_args = parser.add_argument_group('OPTIONAL ARGUMENTS')
     optional_args.add_argument('-l', '--label-folder', dest='label_folder', required=False, type=str,
                                help='Label folder to review. If indicated, only patches from this folder are reviewed. '
-                                    'Otherwise, folders from "-f" are reviewed.')
+                                    'Otherwise, folders from "-f" are reviewed. If multiple, separate them with '
+                                    'commas.')
     optional_args.add_argument('-w', '--window-dims', dest='window_dims', required=False, type=str, default=None,
                                help='Dimensions of images and of the whole window, separated by "x". Default: '
                                     + 'x'.join([str(d) for d in [WIDTH_IMG, HEIGTH_IMG, WIDTH_WND, HEIGTH_WND]]))
@@ -172,21 +173,23 @@ def get_folders_match_tree(label_tree_info):
     return out_dict
 
 
-def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_patches=None, label_folder=None):
+def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_patches=None, label_folder=[]):
     # Init API
     api = Api(email, token)
 
     # subfolder list
-    taxa_list = [f for f in os.listdir(input_folder) if os.path.isdir(os.path.join(input_folder, f))]
-    if label_folder is None:
+    if label_folder is None or len(label_folder) == 0:
+        taxa_list = [f for f in os.listdir(input_folder) if os.path.isdir(os.path.join(input_folder, f))]
         print('\nFound {} taxa.'.format(len(taxa_list)))
     else:
-        if os.path.isdir(os.path.join(input_folder, label_folder)):
-            taxa_list = [label_folder]
-            print('\nReviewing {}.'.format(os.path.join(input_folder, label_folder)))
-        else:
-            print('\nFolder not found: {}.'.format(os.path.join(input_folder, label_folder)))
-            exit()
+        taxa_list = []
+        for l in label_folder:
+            if os.path.isdir(os.path.join(input_folder, l)):
+                taxa_list.append(l)
+                print('\nReviewing {}.'.format(os.path.join(input_folder, l)))
+            else:
+                print('\nFolder not found: {}.'.format(os.path.join(input_folder, l)))
+                exit()
 
     # Get all labels from label tree
     label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
@@ -295,7 +298,7 @@ def main():
                        input_folder=args.ifolder,
                        wnd_dims=wnd_dims,
                        n_patches=args.n_patches,
-                       label_folder=args.label_folder)
+                       label_folder=args.label_folder.split(',') if args.label_folder is not None else [])
 
 
 if __name__ == "__main__":
