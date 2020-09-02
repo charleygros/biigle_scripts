@@ -39,6 +39,9 @@ def get_parser():
     optional_args.add_argument('-l', '--label-folder', dest='label_folder', required=False, type=str,
                                help='Label folder to review. If indicated, only patches from this folder are reviewed. '
                                     'Otherwise, folders from "-f" are reviewed.')
+    optional_args.add_argument('-w', '--window-dims', dest='window_dims', required=False, type=str, default=None,
+                               help='Dimensions of images and of the whole window, separated by "x". Default: '
+                                    + 'x'.join([str(d) for d in [WIDTH_IMG, HEIGTH_IMG, WIDTH_WND, HEIGTH_WND]]))
     optional_args.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
                                help='Shows function documentation.')
 
@@ -86,6 +89,7 @@ class Window(Frame):
         self.accept_key = IntVar()
         self.master.bind("a", self.accept)
         self.master.bind("q", self.quit)
+        self.quit_ = False
 
     def show_img(self, fname_img, taxa):
         self.newWindow = Toplevel(self.master)
@@ -100,7 +104,7 @@ class Window(Frame):
 
     def quit(self, event=None):
         self.accept_key.set(1)
-        self.master.quit()
+        self.quit_ = True
 
     def accept(self, event=None):
         self.accept_key.set(1)
@@ -165,7 +169,7 @@ def get_folders_match_tree(label_tree_info):
     return out_dict
 
 
-def review_annotations(email, token, label_tree_id, input_folder, label_folder=None):
+def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, label_folder=None):
     # Init API
     api = Api(email, token)
 
@@ -186,16 +190,16 @@ def review_annotations(email, token, label_tree_id, input_folder, label_folder=N
     label_dict = get_folders_match_tree(label_tree_info)
 
     # Log file
-    fname_log = os.path.join(input_folder, "logfile_"+datetime.now().strftime("%d/%m/%Y-%H:%M:%S")+".csv")
+    fname_log = os.path.join(input_folder, "logfile_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".csv")
     dict_log = {"annotation_id": [], "from": [], "to": [], "who": []}
 
     # Init GUI
     gui = Tk()
-    gui.geometry(str(WIDTH_WND) + "x" + str(HEIGTH_WND) + "+" + str(550) + "+" + str(0))
+    gui.geometry(str(wnd_dims[2]) + "x" + str(wnd_dims[3]) + "+" + str(550) + "+" + str(0))
     # Init main window
     app = Window(master=gui,
-                 height=HEIGTH_IMG,
-                 width=WIDTH_IMG,
+                 height=wnd_dims[1],
+                 width=wnd_dims[0],
                  list_labels=sorted(list(label_dict.keys())))
 
     # Loop across taxa
@@ -234,7 +238,7 @@ def review_annotations(email, token, label_tree_id, input_folder, label_folder=N
                 # Move patch folder
                 ifname = os.path.join(input_folder, taxa, str(annotation_id)+'.jpg')
                 ofname = os.path.join(input_folder, annotation_folder, str(annotation_id)+'.jpg')
-                shutil.copyfile(ifname, ofname)
+                #shutil.copyfile(ifname, ofname)
 
                 # fill Log file
                 dict_log["annotation_id"].append(annotation_id)
@@ -251,11 +255,22 @@ def review_annotations(email, token, label_tree_id, input_folder, label_folder=N
                                                                                                 image_info['filename'],
                                                                                                 image_info['id']))
 
-    gui.destroy()
+            # Quit if asked
+            if app.quit_:
+                print('\nQuitting the review process.')
+                gui.destroy()
+                break
+
+        if app.quit_:
+            break
+
+    # Quit if not done yet
+    if not app.quit_:
+        gui.destroy()
 
     # Save Log file
     df = pd.DataFrame.from_dict(dict_log)
-    df.to_csv(fname_log)
+    df.to_csv(fname_log, index=False)
     print('\nSaving log file in: {}'.format(fname_log))
 
 
@@ -263,11 +278,17 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
+    if args.window_dims is None:
+        wnd_dims = [WIDTH_IMG, HEIGTH_IMG, WIDTH_WND, HEIGTH_WND]
+    else:
+        wnd_dims = [int(d) for d in args.window_dims.split('x')]
+
     # Run function
     review_annotations(email=args.email,
                        token=args.token,
                        label_tree_id=args.label_tree_id,
                        input_folder=args.ifolder,
+                       wnd_dims=wnd_dims,
                        label_folder=args.label_folder)
 
 
