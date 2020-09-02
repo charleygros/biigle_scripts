@@ -1,5 +1,6 @@
 import os
 import shutil
+import random
 import math
 import argparse
 from datetime import datetime
@@ -42,6 +43,8 @@ def get_parser():
     optional_args.add_argument('-w', '--window-dims', dest='window_dims', required=False, type=str, default=None,
                                help='Dimensions of images and of the whole window, separated by "x". Default: '
                                     + 'x'.join([str(d) for d in [WIDTH_IMG, HEIGTH_IMG, WIDTH_WND, HEIGTH_WND]]))
+    optional_args.add_argument('-n', '--n-patch', dest='n_patches', required=False, type=int,
+                               help='Number of patches to review per taxa.')
     optional_args.add_argument('-h', '--help', action='help', default=argparse.SUPPRESS,
                                help='Shows function documentation.')
 
@@ -169,7 +172,7 @@ def get_folders_match_tree(label_tree_info):
     return out_dict
 
 
-def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, label_folder=None):
+def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_patches=None, label_folder=None):
     # Init API
     api = Api(email, token)
 
@@ -207,6 +210,8 @@ def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, labe
         print('\nReviewing: {} ...'.format(taxa))
         taxa_folder = os.path.join(input_folder, taxa)
         fname_list = [f for f in os.listdir(taxa_folder) if f.endswith('.jpg')]
+        if n_patches is not None and len(fname_list) > n_patches:
+            fname_list = random.sample(fname_list, n_patches)
         fname_nested = [fname_list[i:i + N_IMG_PER_WND] for i in range(0, len(fname_list), N_IMG_PER_WND)]
 
         # Review per chuncks
@@ -289,6 +294,7 @@ def main():
                        label_tree_id=args.label_tree_id,
                        input_folder=args.ifolder,
                        wnd_dims=wnd_dims,
+                       n_patches=args.n_patches,
                        label_folder=args.label_folder)
 
 
