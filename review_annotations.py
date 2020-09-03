@@ -12,11 +12,11 @@ from PIL import ImageTk,Image
 
 from biigle.biigle import Api
 
-N_IMG_PER_WND = 16
+N_IMG_PER_WND = 9
 N_ROWS = N_COLUMNS = int(math.sqrt(N_IMG_PER_WND))
 # GUI params
-WIDTH_IMG = 120
-HEIGTH_IMG = 120
+WIDTH_IMG = 200
+HEIGTH_IMG = 200
 WIDTH_WND = 700
 HEIGTH_WND = 600
 
@@ -74,7 +74,7 @@ class Window(Frame):
         self.changes_list = []
 
         n_column_buttons = 3
-        list_labels.append("NOT VME")
+        list_labels.append("NOT_VME")
         n_row_buttons = math.ceil(float(len(list_labels)) / n_column_buttons)
         cmpt_label = 0
         list_btn = []  # creates list to store the buttons ins
@@ -234,10 +234,21 @@ def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_pa
             # Loop across changes
             for change in change_list:
                 annotation_id, annotation_folder = change
+
+                # Inform about change
+                image_id = api.get('image-annotations/{}'.format(annotation_id)).json()['image_id']
+                image_info = api.get('images/{}'.format(image_id)).json()
+                print('\n\tChange annotation {} from {} to {} on image {} (image ID: {}).'.format(annotation_id,
+                                                                                                taxa,
+                                                                                                annotation_folder,
+                                                                                                image_info['filename'],
+                                                                                                image_info['id']))
+
                 # Change label
-                api.post('image-annotations/{}/labels'.format(annotation_id),
-                         json={'label_id': label_dict[annotation_folder]['id'],
-                               'confidence': 1})
+                if annotation_folder != "NOT_VME":
+                    api.post('image-annotations/{}/labels'.format(annotation_id),
+                             json={'label_id': label_dict[annotation_folder]['id'],
+                                   'confidence': 1})
 
                 # Remove old label
                 old_label_id = [ann['id'] for ann in api.get('image-annotations/{}/labels'.format(annotation_id)).json()
@@ -250,18 +261,13 @@ def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_pa
                 dict_log["to"].append(annotation_folder)
                 dict_log["who"].append(email)
 
-                # Inform about change
-                image_id = api.get('image-annotations/{}'.format(annotation_id)).json()['image_id']
-                image_info = api.get('images/{}'.format(image_id)).json()
-                print('\n\tChange annotation {} from {} to {} on image {} (image ID: {}).'.format(annotation_id,
-                                                                                                taxa,
-                                                                                                annotation_folder,
-                                                                                                image_info['filename'],
-                                                                                                image_info['id']))
+
 
                 # Move patch folder
                 ifname = os.path.join(input_folder, taxa, str(annotation_id)+'.jpg')
                 ofname = os.path.join(input_folder, annotation_folder, str(annotation_id)+'.jpg')
+                if not os.path.isdir(os.path.join(input_folder, annotation_folder)):
+                    os.makedirs(os.path.join(input_folder, annotation_folder))
                 shutil.move(ifname, ofname)
 
             # Quit if asked
