@@ -8,6 +8,7 @@ import pandas as pd
 from requests.exceptions import HTTPError
 
 from biigle.biigle import Api
+import utils as biigle_utils
 
 
 def get_parser():
@@ -56,7 +57,7 @@ def move_annotations(email, token, input_folder, output_folder, label_tree_id, s
 
     # Get all labels from label tree
     label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
-    label_dict = utils.get_folders_match_tree(label_tree_info)
+    label_dict = biigle_utils.get_folders_match_tree(label_tree_info)
 
     # Log file
     fname_log = os.path.join(input_folder, "logfile_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".csv")

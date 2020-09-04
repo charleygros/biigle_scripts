@@ -11,6 +11,7 @@ from tkinter.ttk import Frame, Style, Button
 from PIL import ImageTk,Image
 
 from biigle.biigle import Api
+import utils as biigle_utils
 
 N_IMG_PER_WND = 9
 N_ROWS = N_COLUMNS = int(math.sqrt(N_IMG_PER_WND))
@@ -152,27 +153,6 @@ class Sample:
         self.master.destroy()
 
 
-def get_folders_match_tree(label_tree_info):
-    out_dict = {}
-    for label_info in label_tree_info:
-        parent_info = [label_tree_info_ for label_tree_info_ in label_tree_info
-                       if label_tree_info_['id'] == label_info['parent_id']]
-
-        if len(parent_info) == 0:  # No parent
-            parent_name = ''
-            key_name = label_info['name'].replace(' ', '_')
-        elif len(parent_info) == 1:
-            parent_name = parent_info[0]['name']
-            key_name = parent_name.replace(' ', '_') + '-' + label_info['name'].replace(' ', '_')
-        else:
-            print('ERROR: multiple parents: {}.'.format(label_info))
-            exit()
-
-        out_dict[key_name] = label_info
-
-    return out_dict
-
-
 def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_patches=None, label_folder=[]):
     # Init API
     api = Api(email, token)
@@ -193,7 +173,7 @@ def review_annotations(email, token, label_tree_id, input_folder, wnd_dims, n_pa
 
     # Get all labels from label tree
     label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
-    label_dict = get_folders_match_tree(label_tree_info)
+    label_dict = biigle_utils.get_folders_match_tree(label_tree_info)
 
     # Log file
     fname_log = os.path.join(input_folder, "logfile_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".csv")
