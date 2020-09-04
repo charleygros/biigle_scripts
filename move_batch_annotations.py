@@ -27,6 +27,8 @@ def get_parser():
                                 help='Source label.')
     mandatory_args.add_argument('-d', '--destination', dest='destination', required=True, type=str,
                                 help='Destination label.')
+    mandatory_args.add_argument('-t', '--label-tree-id', dest='label_tree_id', required=True, type=int,
+                                help='Label tree ID.')
 
     # OPTIONAL ARGUMENTS
     optional_args = parser.add_argument_group('OPTIONAL ARGUMENTS')
@@ -38,7 +40,7 @@ def get_parser():
     return parser
 
 
-def move_annotations(email, token, input_folder, output_folder, src, dest, batch_size=100):
+def move_annotations(email, token, input_folder, output_folder, label_tree_id, src, dest, batch_size=100):
     # Init API
     api = Api(email, token)
 
@@ -51,6 +53,10 @@ def move_annotations(email, token, input_folder, output_folder, src, dest, batch
             exit()
     if not os.path.isdir(dest_folder):
         print('\nCreating destination folder: {}'.format(dest_folder))
+
+    # Get all labels from label tree
+    label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
+    label_dict = utils.get_folders_match_tree(label_tree_info)
 
     # Log file
     fname_log = os.path.join(input_folder, "logfile_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".csv")
@@ -124,6 +130,7 @@ def main():
                      token=args.token,
                      input_folder=args.ifolder,
                      output_folder=args.ofolder,
+                     label_tree_id=args.label_tree_id,
                      src=args.source,
                      dest=args.destination,
                      batch_size=args.batch_size)
