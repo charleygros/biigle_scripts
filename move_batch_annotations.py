@@ -5,7 +5,6 @@ import argparse
 from datetime import datetime
 from tqdm import tqdm
 import pandas as pd
-from requests.exceptions import HTTPError
 
 from biigle.biigle import Api
 import utils as biigle_utils
@@ -28,7 +27,7 @@ def get_parser():
                                 help='Source label.')
     mandatory_args.add_argument('-d', '--destination', dest='destination', required=True, type=str,
                                 help='Destination label.')
-    mandatory_args.add_argument('-t', '--label-tree-id', dest='label_tree_id', required=True, type=int,
+    mandatory_args.add_argument('-l', '--label-tree-id', dest='label_tree_id', required=True, type=int,
                                 help='Label tree ID.')
 
     # OPTIONAL ARGUMENTS
@@ -45,6 +44,10 @@ def move_annotations(email, token, input_folder, output_folder, label_tree_id, s
     # Init API
     api = Api(email, token)
 
+    # Get all labels from label tree
+    label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
+    label_dict = biigle_utils.get_folders_match_tree(label_tree_info)
+
     # Check folders exist
     src_folder = os.path.join(output_folder, src)
     dest_folder = os.path.join(output_folder, dest)
@@ -53,36 +56,34 @@ def move_annotations(email, token, input_folder, output_folder, label_tree_id, s
             print('\nFolder not found: {}'.format(f))
             exit()
     if not os.path.isdir(dest_folder):
-        print('\nCreating destination folder: {}'.format(dest_folder))
+        if dest in label_dict:
+            print('\nCreating destination folder: {}'.format(dest_folder))
+            os.makedirs(dest_folder)
+        else:
+            print('\nUnknown destination category: {}'.format(dest))
+            exit()
 
-    # Get all labels from label tree
-    label_tree_info = api.get('label-trees/{}'.format(label_tree_id)).json()['labels']
-    label_dict = biigle_utils.get_folders_match_tree(label_tree_info)
 
     # Log file
-    fname_log = os.path.join(input_folder, "logfile_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".csv")
+    fname_log = os.path.join(output_folder, "logfile_"+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".csv")
     dict_log = {"annotation_id": [], "from": [], "to": [], "who": []}
 
     # Get annotation fnames
     input_fname_list = [f for f in os.listdir(input_folder) if f.endswith('.jpg')]
 
     # Check if all annotations from input folder are coming from source folder
+    input_fname_list_new = []
     for idx, f in enumerate(input_fname_list):
         src_fname_cur = os.path.join(src_folder, f)
         if not os.path.isfile(src_fname_cur):
             print('\tWARNING: {} is not found in {}'.format(f, src_folder))
-            input_fname_list.pop(idx)
-    print('\nFound {} annotations to move.'.format(len(input_fname_list)))
+        else:
+            input_fname_list_new.append(f)
+    print('\nFound {} annotations to move.'.format(len(input_fname_list_new)))
 
     # Nested list
-    input_fname_nested = [input_fname_list[i:i + batch_size] for i in range(0, len(input_fname_list), batch_size)]
-
-    # Check if can batch create
-    can_batch_create = True
-    try:
-        api.post('image-annotations')
-    except HTTPError as e:
-        can_batch_create = False
+    input_fname_nested = [input_fname_list_new[i:i + batch_size]
+                          for i in range(0, len(input_fname_list_new), batch_size)]
 
     # Move per batch
     for fname_sublist in tqdm(input_fname_nested, desc="Reviewing"):
@@ -93,25 +94,36 @@ def move_annotations(email, token, input_folder, output_folder, label_tree_id, s
         # Create batch
         batch = []
         for annotation_info in annotation_infos:
-            annotation_info["label_id"] = label_dict[dest]['id']
+            if dest != "NOT_VME":
+                annotation_info["label_id"] = label_dict[dest]['id']
+            annotation_info["confidence"] = 1.00
             batch.append(copy.copy(annotation_info))
 
         # Run batch
-        api.post('image-annotations', json=batch)
+        if dest != "NOT_VME":
+            api.post('image-annotations', json=batch)
 
         # Cleanup
-        for annotation_id in annotation_ids:
+        for batch_info in batch:
+            # Print info
+            image_info = api.get('images/{}'.format(batch_info['image_id'])).json()
+            print('\n\tChange annotation {} from {} to {} on image {} (image ID: {}).'.format(batch_info['id'],
+                                                                                              src,
+                                                                                              dest,
+                                                                                              image_info['filename'],
+                                                                                              image_info['id']))
+
             # Detach old label
-            old_label_id = [ann['id'] for ann in api.get('image-annotations/{}/labels'.format(annotation_id)).json()
+            old_label_id = [ann['id'] for ann in api.get('image-annotations/{}/labels'.format(batch_info['id'])).json()
                             if ann["label_id"] == label_dict[src]['id']][0]
             api.delete('image-annotation-labels/{}'.format(old_label_id))
 
             # Move file
-            shutil.move(os.path.join(src_folder, annotation_id+'.jpg'),
-                        os.path.join(dest_folder, annotation_id+'.jpg'))
+            shutil.move(os.path.join(src_folder, str(batch_info['id'])+'.jpg'),
+                        os.path.join(dest_folder, str(batch_info['id'])+'.jpg'))
 
             # fill Log file
-            dict_log["annotation_id"].append(annotation_id)
+            dict_log["annotation_id"].append(batch_info['id'])
             dict_log["from"].append(src)
             dict_log["to"].append(dest)
             dict_log["who"].append(email)
