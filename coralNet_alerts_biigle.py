@@ -12,7 +12,7 @@ def get_parser():
     # MANDATORY ARGUMENTS
     mandatory_args = parser.add_argument_group('MANDATORY ARGUMENTS')
     mandatory_args.add_argument('-c', '--coral-net', required=True, type=str,
-                                help='CoralNet csv file, output from "project_coralNet_envGrid.R".')
+                                help='CoralNet csv file.')
     mandatory_args.add_argument('-b', '--biigle', required=True, type=str,
                                 help='BIIGLE csv file.')
     mandatory_args.add_argument('-o', '--ofolder', required=True, type=str,
@@ -51,7 +51,7 @@ def get_presence_absence_biigle(df_biigle, labels_of_interest):
     return df_biigle_detection
 
 
-def compare_coralNet_biigle_detection(fname_coralnet, fname_biigle, fname_translation, ofolder, list_image_id=None):
+def coralNet_alerts_biigle(fname_coralnet, fname_biigle, fname_translation, ofolder, list_image_id=None):
     # Create ofolder if does not exist yet
     if not os.path.isdir(ofolder):
         os.makedirs(ofolder)
@@ -60,7 +60,8 @@ def compare_coralNet_biigle_detection(fname_coralnet, fname_biigle, fname_transl
     df_translation = pd.read_csv(fname_translation)
 
     # BIIGLE data
-    df_biigle = pd.read_csv(fname_biigle)
+    df_biigle = pd.read_csv(fname_biigle)[['label_hierarchy', 'image_id', 'filename', 'shape_name', 'points',
+                                           'attributes']]
     df_biigle = biigle_utils.clean_df(df=df_biigle,
                                       list_image_id=list_image_id)
 
