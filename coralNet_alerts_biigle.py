@@ -60,8 +60,7 @@ def coralNet_alerts_biigle(fname_coralnet, fname_biigle, fname_translation, ofol
     df_translation = pd.read_csv(fname_translation)
 
     # BIIGLE data
-    df_biigle = pd.read_csv(fname_biigle)[['label_hierarchy', 'image_id', 'filename', 'shape_name', 'points',
-                                           'attributes']]
+    df_biigle = pd.read_csv(fname_biigle)
     df_biigle = biigle_utils.clean_df(df=df_biigle,
                                       list_image_id=list_image_id)
 
@@ -73,44 +72,26 @@ def coralNet_alerts_biigle(fname_coralnet, fname_biigle, fname_translation, ofol
     df_coralNet = pd.read_csv(fname_coralnet)
 
     # TRANSLATION
-    biigle2coral = {c: b for c, b in
-                    zip(df_translation['BIIGLE'].tolist(), df_translation['CoralNet'].tolist())}
+    coralNet2biigle = {c: b for c, b in zip(df_translation['CoralNet'].tolist(), df_translation['BIIGLE'].tolist())}
 
-    # Init dict
-    result_labels = [l for l in df_translation['BIIGLE'].unique().tolist() if '-' in l]
-    dict_cell = {'cell': []}
-    dict_cell.update({l: [] for l in result_labels})
-    for cell in df_coralNet['cell'].unique().tolist():
-        coral_cur = df_coralNet[df_coralNet['cell'] == cell]
-        fname_list = coral_cur['Filename'].unique().tolist()
-        biigle_cur = df_pa_biigle[df_pa_biigle['Filename'].isin(fname_list)]
-        # Sum
-        biigle_sum = biigle_cur.sum()
-        coral_sum = coral_cur.sum()
-        # Loop across labels
-        for l in result_labels:
-            if biigle_sum[l]:
-                dict_cell[l].append(1 if coral_sum[biigle2coral[l]] else 0)
-            else:
-                dict_cell[l].append(np.nan)
-        dict_cell['cell'].append(cell)
-    df_cell = pd.DataFrame.from_dict(dict_cell)
-
-    dict_result = {'label': [], 'TP': [], 'FN': [], 'recall': []}
-    for l in result_labels:
-        counts = df_cell[l].value_counts()
-        if len(counts):
-            tp = counts[1] if 1 in counts else 0
-            fn = counts[0] if 0 in counts else 0
-            dict_result['label'].append(l)
-            dict_result['TP'].append(tp)
-            dict_result['FN'].append(fn)
-            dict_result['recall'].append(tp * 100. / (tp + fn))
-    df_result = pd.DataFrame.from_dict(dict_result)
-
-    # Save results
-    df_cell.to_csv(os.path.join(ofolder, "agreement_per_cell.csv"), index=False)
-    df_result.to_csv(os.path.join(ofolder, "recall_per_label.csv"), index=False)
+    # Loop through images
+    for f in df_biigle['filename'].unique().tolist():
+        print('\nf')
+        # Current data
+        df_coralNet_f = df_coralNet[df_coralNet["Name"] == f]
+        df_biigle_f = df_biigle[df_biigle["filename"] == f]
+        # CoralNet Labels
+        labels_coralNet = df_coralNet_f["Label"].unique().tolist()
+        # Only CoralNet Labels of interest
+        labels_coralNet = [l for l in labels_coralNet if l in df_translation['CoralNet'].tolist()]
+        # BIIGLE Labels
+        labels_biigle = df_biigle_f["label_hierarchy"].unique().tolist()
+        # Check False Negative
+        labels_false_negative = [l for l in labels_coralNet if coralNet2biigle[l] not in labels_biigle]
+        # Print alerts
+        if len(labels_false_negative):
+            print('\nf')
+            print('\n\t'.join(labels_false_negative))
 
 
 def main():
@@ -129,11 +110,11 @@ def main():
         list_image_id = None
 
     # Run function
-    compare_coralNet_biigle_detection(fname_coralnet=args.coral_net,
-                                      fname_biigle=args.biigle,
-                                      fname_translation=args.t,
-                                      ofolder=args.ofolder,
-                                      list_image_id=list_image_id)
+    coralNet_alerts_biigle(fname_coralnet=args.coral_net,
+                           fname_biigle=args.biigle,
+                           fname_translation=args.t,
+                           ofolder=args.ofolder,
+                           list_image_id=list_image_id)
 
 
 if __name__ == "__main__":
