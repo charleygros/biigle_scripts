@@ -2,8 +2,9 @@
 Anem_Col,Anemones-Colonial
 Anem_Sol,Anemones-Solitary
 Asc_SCol,Ascidians-Stalked_Colonial
-Asc_SCol_Phallus,Ascidians
-Asc_SCol_Rod,Ascidians
+Asc_SCol_Phallus,Ascidians-Stalked_Colonial
+Asc_Pinhead,Ascidians-Stalked_Solitary
+Asc_SCol_Rod,Ascidians-Stalked_Colonial
 Asc_SSol,Ascidians-Stalked_Solitary
 Asc_UCol,Ascidians-Unstalked_Colonial
 Asc_USol,Ascidians-Unstalked_Solitary
