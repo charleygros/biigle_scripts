@@ -46,24 +46,26 @@ def is_image(fname):
     return False
 
 
-
-
 def normalize_kernel(kernel):
     return kernel / np.sum(kernel)
+
 
 def gaussian_kernel2d(n, sigma):
     Y, X = np.indices((n, n)) - int(n/2)
     gaussian_kernel = 1 / (2 * np.pi * sigma ** 2) * np.exp(-(X ** 2 + Y ** 2) / (2 * sigma ** 2))
     return normalize_kernel(gaussian_kernel)
 
+
 def local_mean(image, kernel):
     return signal.convolve2d(image, kernel, 'same')
+
 
 def local_deviation(image, local_mean, kernel):
     "Vectorized approximation of local deviation"
     sigma = image ** 2
     sigma = signal.convolve2d(sigma, kernel, 'same')
     return np.sqrt(np.abs(local_mean ** 2 - sigma))
+
 
 def calculate_mscn_coefficients(image, kernel_size=6, sigma=7 / 6):
     C = 1 / 255
@@ -73,11 +75,13 @@ def calculate_mscn_coefficients(image, kernel_size=6, sigma=7 / 6):
 
     return (image - local_mean) / (local_var + C)
 
+
 def generalized_gaussian_dist(x, alpha, sigma):
     beta = sigma * np.sqrt(special.gamma(1 / alpha) / special.gamma(3 / alpha))
 
     coefficient = alpha / (2 * beta() * special.gamma(1 / alpha))
     return coefficient * np.exp(-(np.abs(x) / beta) ** alpha)
+
 
 def calculate_pair_product_coefficients(mscn_coefficients):
     return collections.OrderedDict({
@@ -87,6 +91,7 @@ def calculate_pair_product_coefficients(mscn_coefficients):
         'main_diagonal': mscn_coefficients[:-1, :-1] * mscn_coefficients[1:, 1:],
         'secondary_diagonal': mscn_coefficients[1:, :-1] * mscn_coefficients[:-1, 1:]
     })
+
 
 def asymmetric_generalized_gaussian(x, nu, sigma_l, sigma_r):
     def beta(sigma):
