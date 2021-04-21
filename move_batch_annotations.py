@@ -55,7 +55,7 @@ def move_annotations(email, token, input_folder, output_folder, label_tree_id, s
         if not os.path.isdir(f):
             print('\nFolder not found: {}'.format(f))
             exit()
-    if not os.path.isdir(dest_folder):
+    if not os.path.isdir(dest_folder) and dest != "NOT_VME":
         if dest in label_dict:
             print('\nCreating destination folder: {}'.format(dest_folder))
             os.makedirs(dest_folder)
@@ -119,8 +119,11 @@ def move_annotations(email, token, input_folder, output_folder, label_tree_id, s
             api.delete('image-annotation-labels/{}'.format(old_label_id))
 
             # Move file
-            shutil.move(os.path.join(src_folder, str(batch_info['id'])+'.jpg'),
-                        os.path.join(dest_folder, str(batch_info['id'])+'.jpg'))
+            if dest != "NOT_VME":
+                shutil.move(os.path.join(src_folder, str(batch_info['id'])+'.jpg'),
+                            os.path.join(dest_folder, str(batch_info['id'])+'.jpg'))
+            else:
+                os.remove(os.path.join(src_folder, str(batch_info['id'])+'.jpg'))
 
             # fill Log file
             dict_log["annotation_id"].append(batch_info['id'])
