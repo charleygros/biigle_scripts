@@ -16,6 +16,8 @@ from libsvm import svmutil
 
 ACCEPTED_IMAGE_FORMAT = [".jpg", ".png", ".JPG"]
 
+# python compute_image_quality.py -i R:\IMAS\Antarctic_Seafloor\Clean_Data_For_Permanent_Storage\AA2011\AA2011_3_colourcorrected_images_for_annotation -o iqs_aa2011
+
 
 def get_parser():
     parser = argparse.ArgumentParser(add_help=False)
