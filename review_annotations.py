@@ -130,7 +130,7 @@ class Sample:
         self.frame.pack(fill=BOTH, expand=1, side="left")
 
         # To display on different monitor
-        self.master.wm_geometry("+1500+0")
+        #self.master.wm_geometry("+1500+0")
 
         self.annotation_ids = []
 

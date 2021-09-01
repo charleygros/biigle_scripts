@@ -244,6 +244,8 @@ def compute_image_quality(input_path, output_path):
     results_pd.to_csv(o_fname, index=False)
     print("\nFinal results saved in: {}".format(o_fname))
 
+    return o_fname
+
 
 def main():
     parser = get_parser()
