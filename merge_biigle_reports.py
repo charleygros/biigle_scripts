@@ -9,7 +9,7 @@ from biigle.biigle import Api
 
 
 # Example:
-#   python merge_biigle_reports.py -i C:\Users\cgros\Downloads\292_csv_image_annotation_report(1) -t 839-vme-morpho-taxa.csv -a C:\Users\cgros\data\image_area -o 20210908_biigle_vme.csv
+#   python merge_biigle_reports.py -i C:\Users\cgros\Downloads\292_csv_image_annotation_report(1) -t 839-vme-morpho-taxa.csv -o 20210908_biigle_vme.csv
 
 
 def get_parser():
